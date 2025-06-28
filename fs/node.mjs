@@ -1,8 +1,6 @@
-import { readFileSync, realpathSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 
 const fsStatOpts = { throwIfNoEntry: false };
-const fsRealPath =
-  process.platform === "win32" ? realpathSync : realpathSync.native;
 
 export const fs = {
   isFile(file) {
@@ -14,8 +12,5 @@ export const fs = {
   },
   readPkg(file) {
     return JSON.parse(readFileSync(file, "utf8"));
-  },
-  realpath(file) {
-    return fsRealPath(file);
   },
 };
