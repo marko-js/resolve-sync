@@ -16,6 +16,10 @@ export const fs = {
     return JSON.parse(readFileSync(file, "utf8"));
   },
   realpath(file) {
-    return fsRealPath(file);
+    try {
+      return fsRealPath(file);
+    } catch {
+      return file;
+    }
   },
 };
