@@ -78,15 +78,14 @@ function toContext(opts: ResolveOptions): ResolveContext {
 }
 
 function resolveId(ctx: ResolveContext, id: string) {
-  if (id[0] === "#") {
-    return resolveSubImport(ctx, ctx.fromDir, id);
+  switch (id[0]) {
+    case ".":
+      return resolveRelative(ctx, ctx.fromDir, id);
+    case "#":
+      return resolveSubImport(ctx, ctx.fromDir, id);
+    default:
+      return resolvePkg(ctx, id);
   }
-
-  if (/^\.\.?(?:\/|$)/.test(id)) {
-    return resolveRelative(ctx, ctx.fromDir, id);
-  }
-
-  return resolvePkg(ctx, id);
 }
 
 function resolveRelative(ctx: ResolveContext, dir: string, id: string) {
@@ -144,8 +143,24 @@ function resolveDir(ctx: ResolveContext, file: string): string | undefined {
 }
 
 function resolvePkg(ctx: ResolveContext, id: string) {
-  const [, name, part] = /^((?:@[^/]+\/)?[^/]+)(.*)$/.exec(id)!;
   let dir = ctx.fromDir;
+  let slash = id.indexOf("/");
+  let name = id;
+  let part = "";
+
+  if (slash !== -1) {
+    if (id[0] !== "@") {
+      name = id.slice(0, slash);
+      part = id.slice(slash);
+    } else {
+      slash = id.indexOf("/", slash + 1);
+      if (slash !== -1) {
+        name = id.slice(0, slash);
+        part = id.slice(slash);
+      }
+    }
+  }
+
   do {
     const resolved = resolvePkgPart(ctx, dir + "/node_modules/" + name, part);
     if (resolved !== undefined) return resolved;
