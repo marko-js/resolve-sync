@@ -20,6 +20,7 @@ bench("resolve (browserify ish)", () => {
 });
 
 const enhancedResolver = enhancedResolve.create.sync({
+  fileSystem: fs,
   extensions: [".js", ".json"],
   conditionNames: ["default", "node", "import", "require"],
 });
