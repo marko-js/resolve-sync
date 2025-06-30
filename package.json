@@ -19,10 +19,10 @@
   "license": "MIT",
   "author": "Dylan Piercey <dpiercey@ebay.com>",
   "imports": {
-    "#fs": {
-      "types": "./src/fs.d.ts",
-      "node": "./fs/node.mjs",
-      "default": "./fs/stub.mjs"
+    "#defaults": {
+      "types": "./src/defaults.d.ts",
+      "node": "./defaults/node.mjs",
+      "default": "./defaults/stub.mjs"
     }
   },
   "exports": {
@@ -34,7 +34,7 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "files": [
-    "fs",
+    "defaults",
     "dist",
     "!**/__tests__",
     "!**/*.tsbuildinfo"

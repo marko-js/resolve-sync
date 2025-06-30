@@ -1,6 +1,6 @@
 import { exports, imports } from "resolve.exports";
 
-import { fs as defaultFS } from "#fs";
+import { external as defaultExternal, fs as defaultFS } from "#defaults";
 export interface ResolveOptions {
   from: string;
   root?: string;
@@ -8,6 +8,7 @@ export interface ResolveOptions {
   fields?: string[];
   require?: boolean;
   browser?: boolean;
+  external?: (id: string) => boolean;
   conditions?: string[];
   fs?: {
     isFile(file: string): boolean;
@@ -22,6 +23,7 @@ interface ResolveContext {
   fromDir: string;
   exts: string[];
   fields: string[];
+  external: (id: string) => boolean;
   isFile(file: string): boolean;
   readPkg(file: string): unknown;
   realpath(file: string): string;
@@ -67,6 +69,7 @@ function toContext(opts: ResolveOptions): ResolveContext {
     exts: opts.exts || defaultExts,
     fields: opts.fields || (browser ? defaultBrowserFields : defaultFields),
     realpath,
+    external: opts.external || defaultExternal,
     readPkg: fs.readPkg,
     isFile: fs.isFile,
     resolve: {
@@ -84,7 +87,7 @@ function resolveId(ctx: ResolveContext, id: string) {
     case "#":
       return resolveSubImport(ctx, ctx.fromDir, id);
     default:
-      return resolvePkg(ctx, id);
+      return ctx.external(id) ? id : resolvePkg(ctx, id);
   }
 }
 
