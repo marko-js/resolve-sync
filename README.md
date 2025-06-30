@@ -136,6 +136,10 @@ A partial filesystem interface used by the resolver. If running in node, and not
 - `readPkg(file: string): unknown` – reads and parses a JSON file (e.g., `package.json`).
 - `realpath?(file: string): string` – optionally resolves symlinks or returns the canonical path.
 
+### `preserveSymlinks?: boolean`
+
+For use with the `--preserve-symlinks` flag in Node.js, this option is `false` by default. If set to `true`, the resolver will return the symlinked path instead of resolving it to its real path.
+
 ## Examples
 
 ### Basic usage (in Node.js)
