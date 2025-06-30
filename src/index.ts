@@ -8,8 +8,9 @@ export interface ResolveOptions {
   fields?: string[];
   require?: boolean;
   browser?: boolean;
-  external?: (id: string) => boolean;
   conditions?: string[];
+  external?: (id: string) => boolean;
+  preserveSymlinks?: boolean;
   fs?: {
     isFile(file: string): boolean;
     readPkg(file: string): unknown;
@@ -56,9 +57,9 @@ export function resolveSync(id: string, opts: ResolveOptions): string | false {
 
 function toContext(opts: ResolveOptions): ResolveContext {
   const fs = opts.fs || defaultFS;
-  const realpath = fs.realpath || identity;
+  const realpath = (!opts.preserveSymlinks && fs.realpath) || identity;
   const root = toPosix(opts.root || "/");
-  const from = toPosix(realpath(opts.from));
+  const from = toPosix(opts.from);
   const fromDir = dirname(from);
   const browser = !!opts.browser;
   const require = !!opts.require;
