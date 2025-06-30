@@ -830,6 +830,26 @@ describe("resolve - windows path normalization", () => {
   });
 });
 
+describe("resolve - external option", () => {
+  it("returns the id as-is when external returns true", () => {
+    const result = resolveSync("external-module", {
+      from: "/project/src/index.js",
+      external: (id) => id === "external-module",
+      fs: vfs(["/project/src/file.js"]),
+    });
+    assert.equal(result, "external-module");
+  });
+
+  it("resolves normally when external returns false", () => {
+    const result = resolveSync("./file.js", {
+      from: "/project/src/index.js",
+      external: (_) => false,
+      fs: vfs(["/project/src/file.js"]),
+    });
+    assert.equal(result, "/project/src/file.js");
+  });
+});
+
 function vfs(files: (string | [string, string])[]): ResolveOptions["fs"] {
   const fileMap: Record<string, string> = {};
   for (const entry of files) {

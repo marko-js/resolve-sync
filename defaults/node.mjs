@@ -4,6 +4,7 @@ const fsStatOpts = { throwIfNoEntry: false };
 const fsRealPath =
   process.platform === "win32" ? realpathSync : realpathSync.native;
 
+export { isBuiltin as external } from "node:module";
 export const fs = {
   isFile(file) {
     try {

@@ -69,6 +69,30 @@ The absolute path to the source _file_ (not a directory) where the resolution is
 
 An optional root boundary directory. Module resolution won't ascend beyond this directory when traversing parent paths. Defaults to `/` if unspecified.
 
+### `external?: (id: string) => boolean`
+
+A function that, if provided, is called with each module id. If it returns `true`, the resolver will treat the id as external and return it as-is (without attempting to resolve it). This is useful for excluding certain modules from resolution (e.g., built-ins, peer dependencies, or virtual modules).
+
+When not specified, the default behavior depends on the environment:
+In node environments this value is set to `node:module`'s `isBuiltin` function, which treats all built-in modules as external. In other environments, it defaults to `() => false`, meaning no modules are treated as external unless specified.
+
+### `external?: (id: string) => boolean`
+
+Optional function to mark module ids as external. When `true` is returned, that id is returned without resolution (useful for built-ins, peer dependencies, or virtual modules).
+
+Defaults:
+
+- In Node.js: uses `node:module`'s `isBuiltin` (treats built-ins as external).
+- Elsewhere: `() => false` (no externals).
+
+```js
+const result = resolveSync("fs", {
+  from: "/project/src/index.js",
+  external: (id) => id === "fs", // treat 'fs' as external
+});
+// result === "fs"
+```
+
 ### `exts?: string[]`
 
 An optional array of file extensions to try when resolving files without explicit extensions. Defaults to:
