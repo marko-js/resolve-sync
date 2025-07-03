@@ -71,13 +71,6 @@ An optional root boundary directory. Module resolution won't ascend beyond this 
 
 ### `external?: (id: string) => boolean`
 
-A function that, if provided, is called with each module id. If it returns `true`, the resolver will treat the id as external and return it as-is (without attempting to resolve it). This is useful for excluding certain modules from resolution (e.g., built-ins, peer dependencies, or virtual modules).
-
-When not specified, the default behavior depends on the environment:
-In node environments this value is set to `node:module`'s `isBuiltin` function, which treats all built-in modules as external. In other environments, it defaults to `() => false`, meaning no modules are treated as external unless specified.
-
-### `external?: (id: string) => boolean`
-
 Optional function to mark module ids as external. When `true` is returned, that id is returned without resolution (useful for built-ins, peer dependencies, or virtual modules).
 
 Defaults:
