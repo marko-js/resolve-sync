@@ -1,5 +1,11 @@
 # resolve-sync
 
+## 1.2.0
+
+### Minor Changes
+
+- [#7](https://github.com/marko-js/resolve-sync/pull/7) [`30ff1b6`](https://github.com/marko-js/resolve-sync/commit/30ff1b6020b758ee86f81cf9596039fdfea901e7) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Add "silent" config option to gracefully handle missing resolved paths.
+
 ## 1.1.0
 
 ### Minor Changes
