@@ -86,6 +86,10 @@ const result = resolveSync("fs", {
 // result === "fs"
 ```
 
+### `silent?: boolean`
+
+If `silent` is set to `true`, the resolver will suppress errors and return `undefined` when a module cannot be resolved, instead of throwing an exception. This is useful for optional dependencies or when you want to handle missing modules gracefully.
+
 ### `exts?: string[]`
 
 An optional array of file extensions to try when resolving files without explicit extensions. Defaults to:

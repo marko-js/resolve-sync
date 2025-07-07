@@ -2,15 +2,49 @@ import { exports, imports } from "resolve.exports";
 
 import { external as defaultExternal, fs as defaultFS } from "#defaults";
 export interface ResolveOptions {
+  /**
+   * The absolute path to the file from which to resolve the module.
+   */
   from: string;
+  /**
+   * The root directory for resolution. Defaults to "/".
+   */
   root?: string;
+  /**
+   * File extensions to consider. Defaults to [".js", ".json"].
+   */
   exts?: string[];
+  /**
+   * Package.json fields to check for entry points. Defaults to ["module", "main"] or ["browser", "module", "main"] if browser option is true.
+   */
   fields?: string[];
+  /**
+   * If true, suppresses errors and returns undefined when a module cannot be resolved. Defaults to false.
+   */
+  silent?: boolean;
+  /**
+   * If true, resolves using CommonJS (require) semantics.
+   */
   require?: boolean;
+  /**
+   * If true, resolves using browser field mappings.
+   */
   browser?: boolean;
+  /**
+   * Additional conditions for conditional exports/imports.
+   */
   conditions?: string[];
+  /**
+   * Function to determine if a module id should be treated as external.
+   */
   external?: (id: string) => boolean;
+  /**
+   * If true, preserves symbolic links instead of resolving to real paths.
+   */
   preserveSymlinks?: boolean;
+  /**
+   * Custom file system interface.
+   */
   fs?: {
     isFile(file: string): boolean;
     readPkg(file: string): unknown;
@@ -24,6 +58,7 @@ interface ResolveContext {
   fromDir: string;
   exts: string[];
   fields: string[];
+  silent: boolean;
   external: (id: string) => boolean;
   isFile(file: string): boolean;
   readPkg(file: string): unknown;
@@ -40,7 +75,10 @@ const defaultFields = ["module", "main"];
 const defaultBrowserFields = ["browser", "module", "main"];
 const identity = (file: string) => file;
 
-export function resolveSync(id: string, opts: ResolveOptions): string | false {
+export function resolveSync(
+  id: string,
+  opts: ResolveOptions,
+): string | false | undefined {
   const ctx = toContext(opts);
   const resolved = resolveId(ctx, id);
 
@@ -49,6 +87,7 @@ export function resolveSync(id: string, opts: ResolveOptions): string | false {
   }
 
   if (!resolved) {
+    if (ctx.silent) return;
     throw new Error(`Cannot find module '${id}' from '${ctx.from}'`);
   }
 
@@ -67,6 +106,7 @@ function toContext(opts: ResolveOptions): ResolveContext {
     root,
     from,
     fromDir,
+    silent: !!opts.silent,
     exts: opts.exts || defaultExts,
     fields: opts.fields || (browser ? defaultBrowserFields : defaultFields),
     realpath,
@@ -178,6 +218,7 @@ function resolvePkgPart(ctx: ResolveContext, pkgDir: string, part: string) {
     const pkg = ctx.readPkg(pkgFile);
 
     if (!pkg || typeof pkg !== "object") {
+      if (ctx.silent) return;
       throw new Error(`Invalid package '${pkgFile}' loaded by '${ctx.from}'.`);
     }
 
@@ -187,6 +228,7 @@ function resolvePkgPart(ctx: ResolveContext, pkgDir: string, part: string) {
         : resolvePkgField(ctx, pkg, pkgDir, part);
 
     if (resolved === undefined) {
+      if (ctx.silent) return;
       throw new Error(
         `Could not resolve entry for package '${pkgFile}' loaded by '${ctx.from}'.`,
       );

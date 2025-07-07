@@ -850,6 +850,17 @@ describe("resolve - external option", () => {
   });
 });
 
+describe("resolve - silent option", () => {
+  it("returns undefined instead of throwing when module is missing and silent is true", () => {
+    const result = resolveSync("./missing.js", {
+      from: "/project/src/index.js",
+      fs: vfs(["/project/src/file.js"]),
+      silent: true,
+    });
+    assert.equal(result, undefined);
+  });
+});
+
 function vfs(files: (string | [string, string])[]): ResolveOptions["fs"] {
   const fileMap: Record<string, string> = {};
   for (const entry of files) {
