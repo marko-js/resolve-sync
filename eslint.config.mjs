@@ -1,9 +1,10 @@
 import eslint from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import sortImportPlugin from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       ".nyc_output",
@@ -15,7 +16,7 @@ export default tseslint.config(
     ],
   },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
+  tseslint.configs.recommended,
   {
     languageOptions: {
       globals: {
