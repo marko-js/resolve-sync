@@ -50,7 +50,6 @@
     "change": "changeset add",
     "format": "eslint --format unix --fix .; prettier . --write --log-level=warn",
     "prepare": "husky",
-    "release": "semantic-release",
     "report": "open ./coverage/lcov-report/index.html",
     "test": "cross-env NODE_ENV=test mocha 'src/**/__tests__/*.test.ts'",
     "test:update": "npm test -- --update"
