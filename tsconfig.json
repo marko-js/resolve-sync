@@ -27,6 +27,7 @@
     "allowUnreachableCode": false,
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
     "forceConsistentCasingInFileNames": true
   }
 }
