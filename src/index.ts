@@ -144,11 +144,7 @@ function resolveSubImport(ctx: ResolveContext, fromDir: string, id: string) {
   do {
     const pkgFile = dir + "/package.json";
     if (ctx.isFile(pkgFile)) {
-      return resolveFirst(
-        ctx,
-        dir,
-        imports(ctx.readPkg(pkgFile), id, ctx.resolve),
-      );
+      return resolveFirst(ctx, dir, matchImports(ctx, pkgFile, id));
     }
     dir = dirname(dir);
   } while (dir !== ctx.root);
@@ -224,7 +220,7 @@ function resolvePkgPart(ctx: ResolveContext, pkgDir: string, part: string) {
 
     const resolved =
       "exports" in pkg
-        ? resolveFirst(ctx, pkgDir, exports(pkg, ".", ctx.resolve))
+        ? resolveFirst(ctx, pkgDir, matchExports(ctx, pkg, part))
         : resolvePkgField(ctx, pkg, pkgDir, part);
 
     if (resolved === undefined) {
@@ -235,6 +231,26 @@ function resolvePkgPart(ctx: ResolveContext, pkgDir: string, part: string) {
     }
 
     return resolved;
+  }
+}
+
+function matchExports(ctx: ResolveContext, pkg: object, part: string) {
+  try {
+    return exports(pkg, "." + part, ctx.resolve);
+  } catch (err) {
+    // resolve.exports throws when the exports map cannot satisfy the
+    // requested subpath or conditions.
+    if (!ctx.silent) throw err;
+  }
+}
+
+function matchImports(ctx: ResolveContext, pkgFile: string, id: string) {
+  try {
+    return imports(ctx.readPkg(pkgFile) as object, id, ctx.resolve);
+  } catch (err) {
+    // resolve.exports throws when the imports map cannot satisfy the
+    // requested specifier or conditions.
+    if (!ctx.silent) throw err;
   }
 }
 
