@@ -844,6 +844,35 @@ describe("resolve - windows path normalization", () => {
     assert.equal(result, "C:\\project\\node_modules\\pkg\\main.js");
   });
 
+  it("throws instead of walking past the drive root when a module is missing", () => {
+    // The default root ("/") is never reached from a windows path; the walk
+    // must stop at the drive root on its own.
+    assert.throws(() => {
+      resolveSync("missing", {
+        from: "C:\\project\\src\\index.js",
+        fs: windowsVfs(["C:\\project\\src\\index.js"]),
+      });
+    }, /Cannot find module 'missing'/);
+  });
+
+  it("returns undefined instead of walking past the drive root when silent is true", () => {
+    const result = resolveSync("missing", {
+      from: "C:\\project\\src\\index.js",
+      fs: windowsVfs(["C:\\project\\src\\index.js"]),
+      silent: true,
+    });
+    assert.equal(result, undefined);
+  });
+
+  it("stops at the drive root for subpath imports with no package.json", () => {
+    const result = resolveSync("#alias", {
+      from: "C:\\project\\src\\index.js",
+      fs: windowsVfs(["C:\\project\\src\\index.js"]),
+      silent: true,
+    });
+    assert.equal(result, undefined);
+  });
+
   it("resolves extensionless file with windows paths", () => {
     const result = resolveSync("./file", {
       root: "C:\\",

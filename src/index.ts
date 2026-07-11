@@ -146,7 +146,11 @@ function resolveSubImport(ctx: ResolveContext, fromDir: string, id: string) {
     if (ctx.isFile(pkgFile)) {
       return resolveFirst(ctx, dir, matchImports(ctx, pkgFile, id));
     }
-    dir = dirname(dir);
+    const parent = dirname(dir);
+    // A directory that is its own parent is the file system root (e.g.
+    // "D:/" on Windows, which never equals the default "/" root).
+    if (parent === dir) return;
+    dir = parent;
   } while (dir !== ctx.root);
 }
 
@@ -204,7 +208,11 @@ function resolvePkg(ctx: ResolveContext, id: string) {
   do {
     const resolved = resolvePkgPart(ctx, dir + "/node_modules/" + name, part);
     if (resolved !== undefined) return resolved;
-    dir = dirname(dir);
+    const parent = dirname(dir);
+    // A directory that is its own parent is the file system root (e.g.
+    // "D:/" on Windows, which never equals the default "/" root).
+    if (parent === dir) return;
+    dir = parent;
   } while (dir !== ctx.root);
 }
 
