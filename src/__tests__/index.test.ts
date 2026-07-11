@@ -544,6 +544,66 @@ describe("resolve - package exports", () => {
     assert.equal(result, "/project/node_modules/pkg/require.js");
   });
 
+  it("resolves an 'exports' subpath", () => {
+    const result = resolveSync("pkg/cheatsheet.md", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({
+            exports: {
+              ".": "./main.js",
+              "./cheatsheet.md": "./cheatsheet.md",
+            },
+          }),
+        ],
+        "/project/node_modules/pkg/main.js",
+        "/project/node_modules/pkg/cheatsheet.md",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/pkg/cheatsheet.md");
+  });
+
+  it("resolves an 'exports' subpath pattern", () => {
+    const result = resolveSync("pkg/utils/parse.js", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({
+            exports: {
+              "./*": "./dist/*",
+            },
+          }),
+        ],
+        "/project/node_modules/pkg/dist/utils/parse.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/pkg/dist/utils/parse.js");
+  });
+
+  it("throws if 'exports' does not include the subpath", () => {
+    assert.throws(() => {
+      resolveSync("pkg/internal.js", {
+        from: "/project/src/index.js",
+        fs: vfs([
+          [
+            "/project/node_modules/pkg/package.json",
+            JSON.stringify({
+              exports: {
+                ".": "./main.js",
+              },
+            }),
+          ],
+          "/project/node_modules/pkg/main.js",
+          "/project/node_modules/pkg/internal.js",
+        ]),
+      });
+    }, /Missing "\.\/internal\.js" specifier /);
+  });
+
   it("throws if 'exports' has no valid match", () => {
     const fs = vfs([
       [
@@ -855,6 +915,65 @@ describe("resolve - silent option", () => {
     const result = resolveSync("./missing.js", {
       from: "/project/src/index.js",
       fs: vfs(["/project/src/file.js"]),
+      silent: true,
+    });
+    assert.equal(result, undefined);
+  });
+
+  it("returns undefined instead of throwing when 'exports' does not include the subpath and silent is true", () => {
+    const result = resolveSync("pkg/internal.js", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({
+            exports: {
+              ".": "./main.js",
+            },
+          }),
+        ],
+        "/project/node_modules/pkg/main.js",
+      ]),
+      silent: true,
+    });
+    assert.equal(result, undefined);
+  });
+
+  it("returns undefined instead of throwing when 'exports' conditions cannot be satisfied and silent is true", () => {
+    const result = resolveSync("pkg", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({
+            exports: {
+              ".": {
+                types: "./index.d.ts",
+              },
+            },
+          }),
+        ],
+        "/project/node_modules/pkg/index.d.ts",
+      ]),
+      silent: true,
+    });
+    assert.equal(result, undefined);
+  });
+
+  it("returns undefined instead of throwing when 'imports' does not include the specifier and silent is true", () => {
+    const result = resolveSync("#missing", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/package.json",
+          JSON.stringify({
+            imports: {
+              "#alias": "./src/alias.js",
+            },
+          }),
+        ],
+        "/project/src/alias.js",
+      ]),
       silent: true,
     });
     assert.equal(result, undefined);
