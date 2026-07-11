@@ -1,5 +1,11 @@
 # resolve-sync
 
+## 1.2.2
+
+### Patch Changes
+
+- [#12](https://github.com/marko-js/resolve-sync/pull/12) [`93fe85c`](https://github.com/marko-js/resolve-sync/commit/93fe85c17121b6404b0252e6d76b559876090971) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Fix an infinite loop when resolution fails from a Windows path: the `node_modules`/`imports` walk terminated only on reaching `root` (default `/`), which a drive-rooted path never equals — `dirname("D:/")` is `"D:/"`. The walk now also stops when a directory is its own parent (the file system root).
+
 ## 1.2.1
 
 ### Patch Changes
