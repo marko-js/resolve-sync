@@ -97,7 +97,7 @@ export function resolveSync(
 function toContext(opts: ResolveOptions): ResolveContext {
   const fs = opts.fs || defaultFS;
   const realpath = (!opts.preserveSymlinks && fs.realpath) || identity;
-  const root = toPosix(opts.root || "/");
+  const root = normalizeRoot(toPosix(opts.root || "/"));
   const from = toPosix(opts.from);
   const fromDir = dirname(from);
   const browser = !!opts.browser;
@@ -140,18 +140,22 @@ function resolveRelative(ctx: ResolveContext, dir: string, id: string) {
 }
 
 function resolveSubImport(ctx: ResolveContext, fromDir: string, id: string) {
+  const root = ctx.root;
   let dir = fromDir;
-  do {
-    const pkgFile = dir + "/package.json";
+  for (;;) {
+    const pkgFile = joinDir(dir) + "package.json";
     if (ctx.isFile(pkgFile)) {
       return resolveFirst(ctx, dir, matchImports(ctx, pkgFile, id));
     }
+    // Stop after checking `root` itself so a package.json at the boundary is
+    // honored, but nothing above it is searched.
+    if (dir === root) return;
     const parent = dirname(dir);
     // A directory that is its own parent is the file system root (e.g.
     // "D:/" on Windows, which never equals the default "/" root).
     if (parent === dir) return;
     dir = parent;
-  } while (dir !== ctx.root);
+  }
 }
 
 function resolveFirst(
@@ -205,15 +209,23 @@ function resolvePkg(ctx: ResolveContext, id: string) {
     }
   }
 
-  do {
-    const resolved = resolvePkgPart(ctx, dir + "/node_modules/" + name, part);
+  const root = ctx.root;
+  for (;;) {
+    const resolved = resolvePkgPart(
+      ctx,
+      joinDir(dir) + "node_modules/" + name,
+      part,
+    );
     if (resolved !== undefined) return resolved;
+    // Stop after searching `root` itself so its node_modules is included, but
+    // nothing above it is searched.
+    if (dir === root) return;
     const parent = dirname(dir);
     // A directory that is its own parent is the file system root (e.g.
     // "D:/" on Windows, which never equals the default "/" root).
     if (parent === dir) return;
     dir = parent;
-  } while (dir !== ctx.root);
+  }
 }
 
 function resolvePkgPart(ctx: ResolveContext, pkgDir: string, part: string) {
@@ -284,7 +296,10 @@ function resolvePkgField(
   for (const field of ctx.fields) {
     const value = (pkg as Record<string, unknown>)[field];
     if (typeof value === "string") {
-      return resolveRelative(ctx, pkgDir, value);
+      const resolved = resolveRelative(ctx, pkgDir, value);
+      // Like Node's LOAD_AS_DIRECTORY, a field that points at a missing file
+      // is not fatal: fall through to the next field and finally to `index`.
+      if (resolved !== undefined) return resolved;
     }
   }
 
@@ -339,6 +354,24 @@ function getBrowserRemap(
       }
     }
   }
+}
+
+function normalizeRoot(root: string) {
+  const end = root.length - 1;
+  // Drop a trailing slash so the boundary compares equal to the canonical
+  // directories produced while walking. `dirname` never yields a trailing
+  // slash except at a filesystem root ("/" or "C:/"), which we keep as-is.
+  return end > 0 &&
+    root.charCodeAt(end) === 47 /* "/" */ &&
+    !(end === 2 && root.charCodeAt(1) === 58) /* drive root like "C:/" */
+    ? root.slice(0, end)
+    : root;
+}
+
+function joinDir(dir: string) {
+  // Append a trailing slash unless `dir` is already a filesystem root ("/" or
+  // "C:/"), which avoids emitting a doubled slash when building child paths.
+  return dir.charCodeAt(dir.length - 1) === 47 /* "/" */ ? dir : dir + "/";
 }
 
 function dirname(dir: string) {

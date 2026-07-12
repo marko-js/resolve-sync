@@ -338,6 +338,38 @@ describe("resolve - package imports", () => {
     assert.equal(result, "/project/node_modules/pkg/index.js");
   });
 
+  it("falls back to index when a declared main points to a missing file", () => {
+    // Matches Node's LOAD_AS_DIRECTORY: a broken `main` is not fatal when an
+    // index file is present.
+    const result = resolveSync("pkg", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({ main: "missing.js" }),
+        ],
+        "/project/node_modules/pkg/index.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/pkg/index.js");
+  });
+
+  it("falls through to a later field when an earlier one cannot be resolved", () => {
+    const result = resolveSync("pkg", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({ module: "missing.mjs", main: "main.js" }),
+        ],
+        "/project/node_modules/pkg/main.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/pkg/main.js");
+  });
+
   it("remaps a file using browser field with './' key", () => {
     const fs = vfs([
       [
@@ -759,6 +791,90 @@ describe("resolve - subpath imports", () => {
         from: "/project/src/main.js",
       });
     }, /Cannot find module '#foo\/b'/);
+  });
+});
+
+describe("resolve - root boundary", () => {
+  it("searches the root's own node_modules when 'from' is nested below it", () => {
+    // The documented case: `root` is the project directory and the dependency
+    // lives directly in `<root>/node_modules`.
+    const result = resolveSync("pkg", {
+      from: "/project/src/index.js",
+      root: "/project",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({ main: "main.js" }),
+        ],
+        "/project/node_modules/pkg/main.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/pkg/main.js");
+  });
+
+  it("normalizes a trailing slash on 'root'", () => {
+    const result = resolveSync("pkg", {
+      from: "/project/src/index.js",
+      root: "/project/",
+      fs: vfs([
+        [
+          "/project/node_modules/pkg/package.json",
+          JSON.stringify({ main: "main.js" }),
+        ],
+        "/project/node_modules/pkg/main.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/pkg/main.js");
+  });
+
+  it("does not search node_modules above the root boundary", () => {
+    assert.throws(() => {
+      resolveSync("pkg", {
+        from: "/project/src/index.js",
+        root: "/project",
+        fs: vfs([
+          [
+            "/node_modules/pkg/package.json",
+            JSON.stringify({ main: "main.js" }),
+          ],
+          "/node_modules/pkg/main.js",
+        ]),
+      });
+    }, /Cannot find module 'pkg'/);
+  });
+
+  it("resolves a subpath import from a package.json at the root boundary", () => {
+    const result = resolveSync("#alias", {
+      from: "/project/src/index.js",
+      root: "/project",
+      fs: vfs([
+        [
+          "/project/package.json",
+          JSON.stringify({ imports: { "#alias": "./src/aliased.js" } }),
+        ],
+        "/project/src/aliased.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/src/aliased.js");
+  });
+
+  it("does not honor a package.json above the root boundary for subpath imports", () => {
+    assert.throws(() => {
+      resolveSync("#alias", {
+        from: "/project/src/index.js",
+        root: "/project",
+        fs: vfs([
+          [
+            "/package.json",
+            JSON.stringify({ imports: { "#alias": "./aliased.js" } }),
+          ],
+          "/aliased.js",
+        ]),
+      });
+    }, /Cannot find module '#alias'/);
   });
 });
 
