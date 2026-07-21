@@ -1,6 +1,6 @@
 .vscode
 .nyc_output
-package-lock.json
+pnpm-lock.yaml
 node_modules
 coverage
 dist
