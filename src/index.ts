@@ -1,6 +1,10 @@
 import { exports, imports } from "resolve.exports";
 
-import { external as defaultExternal, fs as defaultFS } from "#defaults";
+import {
+  external as defaultExternal,
+  findPackage,
+  fs as defaultFS,
+} from "#defaults";
 export interface ResolveOptions {
   /**
    * The absolute path to the file from which to resolve the module.
@@ -82,16 +86,12 @@ export function resolveSync(
   const ctx = toContext(opts);
   const resolved = resolveId(ctx, id);
 
-  if (resolved === false) {
-    return false;
-  }
-
-  if (!resolved) {
+  if (resolved === undefined) {
     if (ctx.silent) return;
     throw new Error(`Cannot find module '${id}' from '${ctx.from}'`);
   }
 
-  return ctx.realpath(resolved);
+  return resolved;
 }
 
 function toContext(opts: ResolveOptions): ResolveContext {
@@ -121,15 +121,20 @@ function toContext(opts: ResolveOptions): ResolveContext {
   };
 }
 
+// A resolved file is canonicalized; an external id is returned as given.
 function resolveId(ctx: ResolveContext, id: string) {
   switch (id[0]) {
     case ".":
-      return resolveRelative(ctx, ctx.fromDir, id);
+      return toRealpath(ctx, resolveRelative(ctx, ctx.fromDir, id));
     case "#":
-      return resolveSubImport(ctx, ctx.fromDir, id);
+      return toRealpath(ctx, resolveSubImport(ctx, ctx.fromDir, id));
     default:
-      return ctx.external(id) ? id : resolvePkg(ctx, id);
+      return ctx.external(id) ? id : toRealpath(ctx, resolvePkg(ctx, id));
   }
+}
+
+function toRealpath(ctx: ResolveContext, file: string | false | undefined) {
+  return file ? ctx.realpath(file) : file;
 }
 
 function resolveRelative(ctx: ResolveContext, dir: string, id: string) {
@@ -205,12 +210,49 @@ function resolvePkg(ctx: ResolveContext, id: string) {
     }
   }
 
+  // Found where the package manager put it (eg Yarn PnP), or else in the
+  // nearest `node_modules` holding it.
+  if (findPackage) {
+    const pkgDir = findPackage(name, ctx.from);
+    if (pkgDir) {
+      const resolved = resolvePkgPart(ctx, trimSlash(toPosix(pkgDir)), part);
+      if (resolved !== undefined) return resolved;
+    }
+  }
+
   do {
-    const resolved = resolvePkgPart(ctx, dir + "/node_modules/" + name, part);
-    if (resolved !== undefined) return resolved;
+    // As in Node, a `node_modules` folder's own `node_modules` is never tried.
+    if (!dir.endsWith("/node_modules")) {
+      const resolved = resolvePkgPart(ctx, dir + "/node_modules/" + name, part);
+      if (resolved !== undefined) return resolved;
+    }
     const parent = dirname(dir);
     // A directory that is its own parent is the file system root (e.g.
     // "D:/" on Windows, which never equals the default "/" root).
+    if (parent === dir) break;
+    dir = parent;
+  } while (dir !== ctx.root);
+
+  return resolveSelf(ctx, name, part);
+}
+
+// A package importing itself by name, through its own `exports`. Node tries
+// this before `node_modules`; trying it after keeps found packages as fast.
+function resolveSelf(ctx: ResolveContext, name: string, part: string) {
+  let dir = ctx.fromDir;
+  do {
+    const pkgFile = dir + "/package.json";
+    if (ctx.isFile(pkgFile)) {
+      const pkg = ctx.readPkg(pkgFile) as {
+        name?: unknown;
+        exports?: unknown;
+      } | null;
+      if (pkg && pkg.name === name && pkg.exports != null) {
+        return resolveFirst(ctx, dir, matchExports(ctx, pkg, part));
+      }
+      return;
+    }
+    const parent = dirname(dir);
     if (parent === dir) return;
     dir = parent;
   } while (dir !== ctx.root);
@@ -395,6 +437,10 @@ function join(base: string, part: string): string {
   }
 
   return pre + (i ? part.slice(i) : part);
+}
+
+function trimSlash(dir: string) {
+  return dir.length > 1 && dir[dir.length - 1] === "/" ? dir.slice(0, -1) : dir;
 }
 
 function toPosix(file: string) {

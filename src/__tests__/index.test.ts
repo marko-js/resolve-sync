@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 import { type ResolveOptions, resolveSync } from "..";
 
@@ -497,6 +499,19 @@ describe("resolve - package imports", () => {
     });
     assert.equal(result, false);
   });
+  it("never looks in a node_modules folder's own node_modules", () => {
+    const result = resolveSync("dep", {
+      from: "/project/node_modules/pkg/index.js",
+      fs: vfs([
+        ["/project/node_modules/node_modules/dep/package.json", "{}"],
+        "/project/node_modules/node_modules/dep/index.js",
+        ["/project/node_modules/dep/package.json", "{}"],
+        "/project/node_modules/dep/index.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/dep/index.js");
+  });
 });
 
 describe("resolve - package exports", () => {
@@ -759,6 +774,233 @@ describe("resolve - subpath imports", () => {
         from: "/project/src/main.js",
       });
     }, /Cannot find module '#foo\/b'/);
+  });
+});
+
+describe("resolve - externals", () => {
+  it("returns a builtin as given, without canonicalizing it as a path", () => {
+    const result = resolveSync("fs", {
+      from: "/project/src/index.js",
+      fs: {
+        ...vfs([])!,
+        realpath() {
+          throw new Error("an external id is not a path");
+        },
+      },
+    });
+
+    assert.equal(result, "fs");
+  });
+
+  it("returns a custom external as given", () => {
+    const result = resolveSync("virtual:thing", {
+      from: "/project/src/index.js",
+      external: (id) => id.startsWith("virtual:"),
+      fs: vfs([]),
+    });
+
+    assert.equal(result, "virtual:thing");
+  });
+});
+
+describe("resolve - self references", () => {
+  it("resolves a package's own export by its name", () => {
+    const fs = vfs([
+      [
+        "/project/package.json",
+        '{"name":"self","exports":{".":"./main.js","./feature":"./lib/feature.js"}}',
+      ],
+      "/project/main.js",
+      "/project/lib/feature.js",
+    ]);
+
+    assert.equal(
+      resolveSync("self", { from: "/project/src/index.js", fs }),
+      "/project/main.js",
+    );
+    assert.equal(
+      resolveSync("self/feature", { from: "/project/src/index.js", fs }),
+      "/project/lib/feature.js",
+    );
+  });
+
+  it("resolves a scoped package's own export by its name", () => {
+    const result = resolveSync("@scope/self/feature", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        [
+          "/project/package.json",
+          '{"name":"@scope/self","exports":{"./feature":"./feature.js"}}',
+        ],
+        "/project/feature.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/feature.js");
+  });
+
+  it("finds a node_modules package of the same name first", () => {
+    const result = resolveSync("self", {
+      from: "/project/src/index.js",
+      fs: vfs([
+        ["/project/package.json", '{"name":"self","exports":"./main.js"}'],
+        "/project/main.js",
+        ["/project/node_modules/self/package.json", "{}"],
+        "/project/node_modules/self/index.js",
+      ]),
+    });
+
+    assert.equal(result, "/project/node_modules/self/index.js");
+  });
+
+  it("does not resolve a package by its own name without exports", () => {
+    assert.throws(
+      () =>
+        resolveSync("self", {
+          from: "/project/src/index.js",
+          fs: vfs([
+            ["/project/package.json", '{"name":"self","main":"main.js"}'],
+            "/project/main.js",
+          ]),
+        }),
+      /Cannot find module 'self'/,
+    );
+  });
+
+  it("only takes the nearest package.json as the package itself", () => {
+    assert.throws(
+      () =>
+        resolveSync("self", {
+          from: "/project/src/index.js",
+          fs: vfs([
+            ["/project/package.json", '{"name":"self","exports":"./main.js"}'],
+            "/project/main.js",
+            ["/project/src/package.json", "{}"],
+          ]),
+        }),
+      /Cannot find module 'self'/,
+    );
+  });
+
+  it("throws if its own exports do not include the subpath", () => {
+    assert.throws(() =>
+      resolveSync("self/missing", {
+        from: "/project/src/index.js",
+        fs: vfs([
+          ["/project/package.json", '{"name":"self","exports":"./main.js"}'],
+          "/project/main.js",
+        ]),
+      }),
+    );
+  });
+});
+
+describe("resolve - yarn pnp", () => {
+  // Yarn's runtime is set up before any package loads, so these run in a
+  // process whose fake PnP API is in place before resolve-sync is.
+  const underPnp = (
+    locations: Record<string, string> | null,
+    cases: { id: string; from: string; files: Record<string, string> }[],
+  ): unknown[] =>
+    JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          "--import",
+          "tsx",
+          path.join(__dirname, "pnp-child.ts"),
+          JSON.stringify({ locations, cases }),
+        ],
+        { encoding: "utf8", env: { ...process.env, NODE_NO_WARNINGS: "1" } },
+      ),
+    );
+
+  it("resolves a package from the folder PnP gives", () => {
+    const [result] = underPnp({ pkg: "/cache/pkg.zip/node_modules/pkg/" }, [
+      {
+        id: "pkg",
+        from: "/project/src/index.js",
+        files: {
+          "/cache/pkg.zip/node_modules/pkg/package.json": '{"main":"lib.js"}',
+          "/cache/pkg.zip/node_modules/pkg/lib.js": "",
+        },
+      },
+    ]);
+
+    assert.equal(result, "/cache/pkg.zip/node_modules/pkg/lib.js");
+  });
+
+  it("resolves a scoped package's exports subpath from the folder PnP gives", () => {
+    const [result] = underPnp(
+      { "@scope/pkg": "/cache/scope.zip/node_modules/@scope/pkg" },
+      [
+        {
+          id: "@scope/pkg/feature",
+          from: "/project/src/index.js",
+          files: {
+            "/cache/scope.zip/node_modules/@scope/pkg/package.json":
+              '{"exports":{"./feature":"./dist/feature.js"}}',
+            "/cache/scope.zip/node_modules/@scope/pkg/dist/feature.js": "",
+          },
+        },
+      ],
+    );
+
+    assert.equal(
+      result,
+      "/cache/scope.zip/node_modules/@scope/pkg/dist/feature.js",
+    );
+  });
+
+  it("normalizes a windows folder from PnP", () => {
+    const [result] = underPnp(
+      { pkg: "C:\\cache\\pkg.zip\\node_modules\\pkg\\" },
+      [
+        {
+          id: "pkg",
+          from: "C:\\project\\src\\index.js",
+          files: {
+            "C:\\cache\\pkg.zip\\node_modules\\pkg\\package.json": "{}",
+            "C:\\cache\\pkg.zip\\node_modules\\pkg\\index.js": "",
+          },
+        },
+      ],
+    );
+
+    assert.equal(result, "C:\\cache\\pkg.zip\\node_modules\\pkg\\index.js");
+  });
+
+  it("looks in node_modules for a package PnP does not know of from there", () => {
+    const fromNodeModules = {
+      id: "pkg",
+      from: "/project/src/index.js",
+      files: {
+        "/project/node_modules/pkg/package.json": "{}",
+        "/project/node_modules/pkg/index.js": "",
+      },
+    };
+
+    assert.deepEqual(underPnp({}, [fromNodeModules]), [
+      "/project/node_modules/pkg/index.js",
+    ]);
+    assert.deepEqual(underPnp(null, [fromNodeModules]), [
+      "/project/node_modules/pkg/index.js",
+    ]);
+  });
+
+  it("looks in node_modules when the file system cannot read the folder PnP gives", () => {
+    const [result] = underPnp({ pkg: "/cache/pkg.zip/node_modules/pkg/" }, [
+      {
+        id: "pkg",
+        from: "/project/src/index.js",
+        files: {
+          "/project/node_modules/pkg/package.json": "{}",
+          "/project/node_modules/pkg/index.js": "",
+        },
+      },
+    ]);
+
+    assert.equal(result, "/project/node_modules/pkg/index.js");
   });
 });
 

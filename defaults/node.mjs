@@ -1,4 +1,5 @@
 import { readFileSync, realpathSync, statSync } from "node:fs";
+import module from "node:module";
 
 const fsStatOpts = { throwIfNoEntry: false };
 const fsRealPath =
@@ -24,3 +25,19 @@ export const fs = {
     }
   },
 };
+
+// Yarn PnP keeps packages out of `node_modules`. Its runtime, set up before
+// any package loads, adds `findPnpApi` to `node:module`, whose API knows
+// where each one is; without it there is nothing to ask.
+export const findPackage = module.findPnpApi
+  ? (name, from) => {
+      const api = module.findPnpApi(from);
+      if (api) {
+        try {
+          return api.resolveToUnqualified(name, from) || undefined;
+        } catch {
+          // Not a dependency PnP knows of from here.
+        }
+      }
+    }
+  : undefined;
