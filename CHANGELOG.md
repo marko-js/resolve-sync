@@ -1,5 +1,17 @@
 # resolve-sync
 
+## 1.3.0
+
+### Minor Changes
+
+- [#16](https://github.com/marko-js/resolve-sync/pull/16) [`d2bb50a`](https://github.com/marko-js/resolve-sync/commit/d2bb50a878e417b68c91b0d278033a87d7a80a61) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Resolve a package importing itself by its own name through its `exports`, as Node does.
+
+- [#16](https://github.com/marko-js/resolve-sync/pull/16) [`d2bb50a`](https://github.com/marko-js/resolve-sync/commit/d2bb50a878e417b68c91b0d278033a87d7a80a61) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Resolve packages under Yarn Plug'n'Play: when run in Node under PnP, a package is found where PnP keeps it (eg inside its zip in `.yarn/cache`) before looking in `node_modules`.
+
+### Patch Changes
+
+- [#16](https://github.com/marko-js/resolve-sync/pull/16) [`d2bb50a`](https://github.com/marko-js/resolve-sync/commit/d2bb50a878e417b68c91b0d278033a87d7a80a61) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Return an external id (eg a builtin like `fs`) as given instead of canonicalizing it as a path, which returned a local `./fs` when one existed and made resolving a builtin about a hundred times slower. Like Node, never look for a package in a `node_modules` folder's own `node_modules`.
+
 ## 1.2.2
 
 ### Patch Changes
