@@ -7,3 +7,4 @@ export const fs = {
     throw new Error("readPkg is not implemented by default outside of node.");
   },
 };
+export const findPackage = undefined;

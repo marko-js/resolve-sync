@@ -58,6 +58,8 @@ It avoids using any `node:` built in modules to make using in any environment (i
 - [custom extensions](#exts-string)
 - [export conditions](https://nodejs.org/api/packages.html#exports)
 - [import conditions](https://nodejs.org/api/packages.html#imports)
+- [self-referencing a package by its name](https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name)
+- [Yarn Plug'n'Play](https://yarnpkg.com/features/pnp), when run in Node under it: packages are found where PnP keeps them, falling back to `node_modules`
 
 ## Resolve Options
 
