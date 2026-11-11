@@ -1,6 +1,6 @@
 {
   "name": "resolve-sync",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "Node module resolution that is flexible, synchronous and requires no builtin dependencies.",
   "keywords": [
     "resolve",
